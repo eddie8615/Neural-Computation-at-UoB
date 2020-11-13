@@ -66,7 +66,8 @@ class BackPropagation:
         # TODO
         for i in range(self.L-1):
             print("Current layer: ", i+1)
-            self.a[i+1] = sigmoid(np.dot(self.w[i+1], self.a[i]) + self.b[i+1])
+            self.z[i+1] = np.dot(self.w[i+1], self.a[i]) + self.b[i+1]
+            self.a[i+1] = sigmoid(self.z[i+1])
 
         return self.softmax((self.a[self.L-1]))
 
@@ -80,12 +81,25 @@ class BackPropagation:
         idx = np.argmax(y)
         return -np.log(pred[idx])
     
-    def backward(self,x, y):
+    def backward(self, x, y):
         """ Compute local gradients, then return gradients of network.
         """
         # TODO
-        for i in range(self.L-1):
-
+        idx = np.argmax(y)
+        y[idx] -= 1
+        self.a[self.L-1] = y
+        for i in range(self.L-1, 0, -1):
+            print("Layer ", i)
+            print(self.a[i])
+            if i == self.L-1:
+                self.delta[i] = self.a[i]
+                self.dw[i] = np.dot(self.a[i-1].reshape(len(self.a[i-1]), 1), self.delta[i].reshape(1, len(self.delta[i])))
+                self.db[i] = self.delta[i]
+            else:
+                self.delta[i] = sigmoid_d(self.z[i]) * self.delta[i+1].dot(self.w[i+1])
+                self.dw[i] = self.a[i - 1].T.dot(self.delta[i])
+                self.db[i] = self.delta[i]
+            print(self.dw[i])
 
     # Return predicted image class for input x
     def predict(self, x):
@@ -198,13 +212,13 @@ class BackPropagation:
 def main():
     bp = BackPropagation()
 
-    print(bp.dw[1])
+    print(bp.dw[4].shape)
     print(bp.delta[4].shape)
     print(bp.forward(bp.trainX[0]))
 
     print(bp.loss(bp.softmax(bp.a[bp.L-1]), bp.trainY[0]))
-    # bp.backward(bp.trainX[0], bp.trainY[0])
-    # print(bp.dw[1])
+    bp.backward(bp.trainX[0], bp.trainY[0])
+    print(bp.dw[4])
     # bp.sgd()
 
 if __name__ == "__main__":
