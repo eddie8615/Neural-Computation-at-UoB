@@ -16,7 +16,7 @@ plt.subplots_adjust(wspace=1, hspace=1)
 fig_p.show()
 
 
-def display_predictions(network, show_pct=False):
+def display_predictions(network, show_pct=True):
     fashion = ["T-shirt", "Trouser", "Pullover", "Dress",
                "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Boot"]
     permutation = np.random.permutation(len(network.testX))
@@ -24,7 +24,9 @@ def display_predictions(network, show_pct=False):
         for x in range(nx):
             i = permutation[x*ny+y]
             predicted = network.predict(network.testX[i])
+
             correct = np.argmax(network.testY[i])
+
             if predicted == correct:
                 color = "Greys"
             else:
@@ -33,6 +35,7 @@ def display_predictions(network, show_pct=False):
             if show_pct:
                 label += " (" + \
                     '{0:.2f}'.format(network.predict_pct(predicted)) + ")"
+
             axarr_p[y, x].set_xlabel(label, fontsize=10)
             axarr_p[y, x].imshow(network.testX[i].reshape(28, 28), cmap=color)
             axarr_p[y, x].tick_params(
@@ -41,8 +44,9 @@ def display_predictions(network, show_pct=False):
                 bottom='off',      # ticks along the bottom edge are off
                 top='off',         # ticks along the top edge are off
                 labelbottom='off')  # labels along the bottom edge are off
-            axarr_p[y, x].axes.get_yaxis().set_visible(False)
+            axarr_p[y, x].axes.get_yaxis().set_visible(True)
     fig_p.canvas.draw()
+    fig_p.show()
     plt.pause(0.01)
 
 
@@ -68,6 +72,7 @@ def plot_stats(a, loss, test_acc_log, train_acc_log):
     axarr[2].plot(loss)
 
     fig.canvas.draw()
+    fig.show()
     plt.pause(0.01)
 
 

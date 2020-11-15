@@ -14,7 +14,7 @@ import fnn_utils
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 def sigmoid_d(x):
-    return x * (1-x)
+    return sigmoid(x) * (1-sigmoid(x))
 def relu(x):
     return np.maximum(0, x)
 def relu_d(x):
@@ -65,9 +65,8 @@ class BackPropagation:
         self.a[0] = x - 0.5      # Center the input values between [-0.5,0.5]
         # TODO
         for i in range(self.L-1):
-            print("Current layer: ", i+1)
             self.z[i+1] = np.dot(self.w[i+1], self.a[i]) + self.b[i+1]
-            self.a[i+1] = sigmoid(self.z[i+1])
+            self.a[i+1] = self.phi(self.z[i+1])
 
         return self.softmax((self.a[self.L-1]))
 
@@ -85,29 +84,42 @@ class BackPropagation:
         """ Compute local gradients, then return gradients of network.
         """
         # TODO
-        idx = np.argmax(y)
-        y[idx] -= 1
-        self.a[self.L-1] = y
-        for i in range(self.L-1, 0, -1):
-            print("Layer ", i)
-            print(self.a[i])
-            if i == self.L-1:
-                self.delta[i] = self.a[i]
-                self.dw[i] = np.dot(self.a[i-1].reshape(len(self.a[i-1]), 1), self.delta[i].reshape(1, len(self.delta[i])))
-                self.db[i] = self.delta[i]
+        # idx = np.argmax(y)
+        # y[idx] -= 1
+        # self.a[self.L-1] = y
+        # for i in range(self.L-1, 0, -1):
+        #     print("Layer ", i)
+        #     print(self.a[i])
+        #     if i == self.L-1:
+        #         self.delta[i] = self.a[i]
+        #         self.dw[i] = np.dot(self.a[i-1].reshape(len(self.a[i-1]), 1), self.delta[i].reshape(1, len(self.delta[i])))
+        #         self.db[i] = self.delta[i]
+        #     else:
+        #         self.delta[i] = sigmoid_d(self.z[i]) * self.delta[i+1].dot(self.w[i+1])
+        #         self.dw[i] = self.a[i - 1].T.dot(self.delta[i])
+        #         self.db[i] = self.delta[i]
+        #     print(self.dw[i])
+        for l in reversed(range(self.L)):
+            if l == self.L - 1:
+                self.delta[l] = self.a[l] - y
             else:
-                self.delta[i] = sigmoid_d(self.z[i]) * self.delta[i+1].dot(self.w[i+1])
-                self.dw[i] = self.a[i - 1].T.dot(self.delta[i])
-                self.db[i] = self.delta[i]
-            print(self.dw[i])
+                if (l >= 1):
+                    self.delta[l] = self.phi_d(self.z[l]) * np.dot(self.delta[l + 1], self.w[l + 1])
+
+        for l in range(self.L):
+            if (l >= 1):
+                self.dw[l] = np.dot(self.delta[l].reshape(-1, 1), self.a[l - 1].reshape(1, -1))
+
+        for k in range(self.L):
+            self.db[l] = self.delta[l]
 
     # Return predicted image class for input x
     def predict(self, x):
-        return # TODO
+        return np.argmax(self.forward(x))
 
     # Return predicted percentage for class j
     def predict_pct(self, j):
-        return # TODO 
+        return self.a[self.L-1][j] * 100
     
     def evaluate(self, X, Y, N):
         """ Evaluate the network on a random subset of size N. """
@@ -133,6 +145,11 @@ class BackPropagation:
         N = min(len(self.trainX), len(self.trainY))
         num_batches = int(N/batch_size)
 
+        self.trainX = self.trainX / 255
+        self.trainY = self.trainY / 255
+        self.testX = self.testX /255
+        self.testY = self.testY / 255
+
         # Variables to keep track of statistics
         loss_log      = []
         test_acc_log  = []
@@ -145,7 +162,7 @@ class BackPropagation:
         
         # In each "epoch", the network is exposed to the entire training set.
         for t in range(epochs):
-
+            print("Epoch: ", t)
             # We will order the training data using a random permutation.
             permutation = np.random.permutation(N)
             
@@ -158,6 +175,10 @@ class BackPropagation:
                 
                 # Reset buffer containing updates
                 # TODO
+                for i in range(self.L):
+                    self.delta[i].fill(0)
+                    self.db[i].fill(0)
+                    self.dw[i].fill(0)
                 
                 # Mini-batch loop
                 for i in range(batch_size):
@@ -167,10 +188,10 @@ class BackPropagation:
                     y = self.trainY[permutation[k*batch_size+i]]
 
                     # Feed forward inputs
-                    # TODO
+                    pred = self.forward(x)
                     
                     # Compute gradients
-                    # TODO
+                    self.backward(x, y)
 
                     # Update loss log
                     batch_loss += self.loss(self.a[self.L-1], y)
@@ -180,10 +201,9 @@ class BackPropagation:
                                     
                 # Update the weights at the end of the mini-batch using gradient descent
                 for l in range(1,self.L):
-                    break
-                    # self.w[l] = # TODO
-                    # self.b[l] = # TODO
-                
+                    self.w[l] = self.w[l] - epsilon * self.dw[l]
+                    self.b[l] = self.b[l] - epsilon * self.db[l]
+
                 # Update logs
                 loss_log.append( batch_loss / batch_size )
                 batch_loss = 0
@@ -211,15 +231,16 @@ class BackPropagation:
 
 def main():
     bp = BackPropagation()
+    # fnn_utils.display_predictions(bp, show_pct=True)
 
-    print(bp.dw[4].shape)
-    print(bp.delta[4].shape)
-    print(bp.forward(bp.trainX[0]))
-
-    print(bp.loss(bp.softmax(bp.a[bp.L-1]), bp.trainY[0]))
-    bp.backward(bp.trainX[0], bp.trainY[0])
-    print(bp.dw[4])
-    # bp.sgd()
+    # print(bp.dw[4].shape)
+    # print(bp.delta[4].shape)
+    # print(bp.forward(bp.trainX[0]))
+    #
+    # print(bp.loss(bp.softmax(bp.a[bp.L-1]), bp.trainY[0]))
+    # bp.backward(bp.trainX[0], bp.trainY[0])
+    # print(bp.dw[1])
+    bp.sgd()
 
 if __name__ == "__main__":
     main()
