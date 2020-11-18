@@ -46,7 +46,6 @@ def display_predictions(network, show_pct=True):
                 labelbottom='off')  # labels along the bottom edge are off
             axarr_p[y, x].axes.get_yaxis().set_visible(True)
     fig_p.canvas.draw()
-    fig_p.show()
     plt.pause(0.01)
 
 
@@ -72,7 +71,6 @@ def plot_stats(a, loss, test_acc_log, train_acc_log):
     axarr[2].plot(loss)
 
     fig.canvas.draw()
-    fig.show()
     plt.pause(0.01)
 
 

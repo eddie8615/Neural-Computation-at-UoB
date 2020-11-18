@@ -16,14 +16,16 @@ def sigmoid(x):
 def sigmoid_d(x):
     return sigmoid(x) * (1-sigmoid(x))
 def relu(x):
-    return np.maximum(0, x)
-def relu_d(x):
-    x[x <= 0] = 0
-    x[x > 0] = 1
-    return x
+    squarer = lambda x: max(0.0, x)
+    vfunc = np.vectorize(squarer)
+    return vfunc(x)
 
-    return ...
-       
+def relu_d(x):
+    squarer = lambda x: 1 if x > 0 else 0
+    vfunc = np.vectorize(squarer)
+    return vfunc(x)
+
+
 class BackPropagation:
 
     # The network shape list describes the number of units in each
@@ -77,49 +79,55 @@ class BackPropagation:
 
     def loss(self, pred, y):
         # TODO
-        idx = np.argmax(y)
-        return -np.log(pred[idx])
-    
+        # idx = np.argmax(y)
+        # if pred[idx] == 0:
+        #     return 0
+        # else:
+        #     return -np.log(pred[idx])
+        z = self.z[-1]
+        Q = np.sum(np.exp(z))
+        true = np.argmax(y)
+        return np.log(Q) - (z[true])
+
     def backward(self, x, y):
         """ Compute local gradients, then return gradients of network.
         """
         # TODO
-        # idx = np.argmax(y)
-        # y[idx] -= 1
-        # self.a[self.L-1] = y
-        # for i in range(self.L-1, 0, -1):
-        #     print("Layer ", i)
-        #     print(self.a[i])
-        #     if i == self.L-1:
-        #         self.delta[i] = self.a[i]
-        #         self.dw[i] = np.dot(self.a[i-1].reshape(len(self.a[i-1]), 1), self.delta[i].reshape(1, len(self.delta[i])))
-        #         self.db[i] = self.delta[i]
+        # for l in reversed(range(self.L)):
+        #     if l == self.L - 1:
+        #         self.delta[l] = self.a[l] - y
         #     else:
-        #         self.delta[i] = sigmoid_d(self.z[i]) * self.delta[i+1].dot(self.w[i+1])
-        #         self.dw[i] = self.a[i - 1].T.dot(self.delta[i])
-        #         self.db[i] = self.delta[i]
-        #     print(self.dw[i])
-        for l in reversed(range(self.L)):
-            if l == self.L - 1:
-                self.delta[l] = self.a[l] - y
-            else:
-                if (l >= 1):
-                    self.delta[l] = self.phi_d(self.z[l]) * np.dot(self.delta[l + 1], self.w[l + 1])
+        #         if (l >= 1):
+        #             self.delta[l] = self.phi_d(self.z[l]) * np.dot(self.delta[l + 1], self.w[l + 1])
+        #
+        # for l in range(self.L):
+        #     if (l >= 1):
+        #         self.dw[l] = np.dot(self.delta[l].reshape(-1, 1), self.a[l - 1].reshape(1, -1))
+        #
+        # for k in range(self.L):
+        #     self.db[l] = self.delta[l]
 
-        for l in range(self.L):
-            if (l >= 1):
-                self.dw[l] = np.dot(self.delta[l].reshape(-1, 1), self.a[l - 1].reshape(1, -1))
-
-        for k in range(self.L):
-            self.db[l] = self.delta[l]
-
+        for i in range(self.L - 1, 0, -1):  # loop layer
+            if i == self.L - 1:  # output layer
+                self.delta[i] = self.a[self.L - 1] - y  # dc/dz
+            else:  # normal layer
+                self.delta[i] = self.phi_d(self.z[i]) * np.dot(
+                    (self.w[i + 1].T), self.delta[i + 1])
+                # dc/dz,= next's layer's local grad*w to this layer*
+                # activation derivative(input of perivious layer)
+            self.db[i] += self.delta[i]  # dc/db, = dc/dz
+            self.dw[i] += np.outer(self.delta[i],
+                                   self.a[i - 1])  # dc/dw, = dc/dz * a^l-1
     # Return predicted image class for input x
     def predict(self, x):
-        return np.argmax(self.forward(x))
+        output = self.forward(x)
+        pred = np.argmax(output)
+        return pred
+        # return np.argmax(self.forward(x))
 
     # Return predicted percentage for class j
     def predict_pct(self, j):
-        return self.a[self.L-1][j] * 100
+        return self.a[self.L-1][j]
     
     def evaluate(self, X, Y, N):
         """ Evaluate the network on a random subset of size N. """
@@ -131,8 +139,8 @@ class BackPropagation:
     
     def sgd(self,
             batch_size=50,
-            epsilon=0.01,
-            epochs=1000):
+            epsilon=0.001,
+            epochs=20):
 
         """ Mini-batch gradient descent on training data.
 
@@ -145,10 +153,10 @@ class BackPropagation:
         N = min(len(self.trainX), len(self.trainY))
         num_batches = int(N/batch_size)
 
-        self.trainX = self.trainX / 255
-        self.trainY = self.trainY / 255
-        self.testX = self.testX /255
-        self.testY = self.testY / 255
+        # self.trainX = self.trainX / 255
+        # self.trainY = self.trainY / 255
+        # self.testX = self.testX /255
+        # self.testY = self.testY / 255
 
         # Variables to keep track of statistics
         loss_log      = []
@@ -159,6 +167,7 @@ class BackPropagation:
         timestamp2 = time.time()
 
         predictions_not_shown = True
+
         
         # In each "epoch", the network is exposed to the entire training set.
         for t in range(epochs):
@@ -179,6 +188,8 @@ class BackPropagation:
                     self.delta[i].fill(0)
                     self.db[i].fill(0)
                     self.dw[i].fill(0)
+                    self.a[i].fill(0.0)
+                    self.z[i].fill(0.0)
                 
                 # Mini-batch loop
                 for i in range(batch_size):
@@ -201,23 +212,24 @@ class BackPropagation:
                                     
                 # Update the weights at the end of the mini-batch using gradient descent
                 for l in range(1,self.L):
-                    self.w[l] = self.w[l] - epsilon * self.dw[l]
-                    self.b[l] = self.b[l] - epsilon * self.db[l]
+                    self.w[l] = self.w[l] - epsilon * (self.dw[l] / batch_size)
+                    self.b[l] = self.b[l] - epsilon * (self.db[l] / batch_size)
 
                 # Update logs
                 loss_log.append( batch_loss / batch_size )
                 batch_loss = 0
 
                 # Update plot of statistics every 10 seconds.
-                if time.time() - timestamp > 10:
+                if time.time() - timestamp > 100:
                     timestamp = time.time()
                     fnn_utils.plot_stats(self.batch_a,
                                          loss_log,
                                          test_acc_log,
                                          train_acc_log)
 
+
                 # Display predictions every 20 seconds.
-                if (time.time() - timestamp2 > 20) or predictions_not_shown:
+                if (time.time() - timestamp2 > 200) or predictions_not_shown:
                     predictions_not_shown = False
                     timestamp2 = time.time()
                     fnn_utils.display_predictions(self,show_pct=True)
@@ -241,6 +253,8 @@ def main():
     # bp.backward(bp.trainX[0], bp.trainY[0])
     # print(bp.dw[1])
     bp.sgd()
+    fnn_utils.fig.show()
+    fnn_utils.fig_p.show()
 
 if __name__ == "__main__":
     main()
